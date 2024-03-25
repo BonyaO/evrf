@@ -27,10 +27,12 @@ print(k)
 
 # this is the naive hash and pray
 # TODO implement a proper hash_to_curve
-#def hash_to_curve_bandersnatch(x):
-#    while True:
-#        i    
-    
+def hash_to_curve_bandersnatch(x):
+    while True:
+        try: 
+            P = F.lift_x(x)
+            return P   
+        except (ValueError):
+            x = x+1
 
 
-#def eval(k, x):
