@@ -20,11 +20,14 @@ F = EllipticCurve_from_j(Fr(8000))
 a = 52435875175126190479447740508185965837690552500527637822603658699938430656513
 b = 52435875175126190479447740508185965837690552500527637822603658699309173440513
 
+# G1 generator
+G = E([0x17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb,
+0x08b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1])
+assert (r*G).is_zero()
+
 #private key 
 k =  Fq.random_element()
-
-print(k)
-
+  
 # this is the naive hash and pray
 # TODO implement a proper hash_to_curve
 def hash_to_curve_bandersnatch(x):
@@ -35,4 +38,11 @@ def hash_to_curve_bandersnatch(x):
         except (ValueError):
             x = x+1
 
+def eval(k,x):
+    H = hash_to_curve_bandersnatch(x)
+    P = k* H
+    xp = P[0]
+    return xp, xp*G
 
+
+print(eval(k,4))
