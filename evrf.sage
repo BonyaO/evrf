@@ -45,4 +45,4 @@ def eval(k,x):
     return xp, xp*G
 
 
-print(eval(k,4))
+print(eval(k,Fr.random_element() ))
