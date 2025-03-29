@@ -1,3 +1,5 @@
+import hashlib
+
 # base fild of BLS12-381
 p = 0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab
 # order of BLS12-381
@@ -38,21 +40,73 @@ def hash_to_curve_bandersnatch(x):
         except (ValueError):
             x = x+1
 
+def point_to_bytes(P):
+    """Serialize elliptic curve point to bytes in a consistent format"""
+    x = Integer(P[0])
+    y = Integer(P[1])
+    return x.str().encode() + y.str().encode()
 
 def keygen():
 
     #Private key
-    k = Fq.random_element()
+    k = Fr.random_element()
 
     #verification key
     Q = k * G
 
-    #TODO: implement a Schnorr proof to generate pi_Q
-    pi_Q = k
+    #Schnorr proof to generate pi_Q
+    pi_Q = proof_R_dlog(k)
 
     vk = (Q, pi_Q)
 
     return k, vk
+
+#Schnorr proof of knowledge of discrete log
+def proof_R_dlog(k):
+
+    k_fr = Fr(k)
+    P = k_fr*G
+
+    r_nonce = Fr.random_element() #Random nonce
+    R = r_nonce*G 
+
+    challenge_data = point_to_bytes(P) + point_to_bytes(G) + point_to_bytes(R)
+
+    challenge = Fr(int.from_bytes(hashlib.sha256(challenge_data).digest(), byteorder='big'))
+
+    #Challeng response
+    s = r_nonce + challenge * k_fr
+
+    print("Values in proof")
+    print("left")
+    print(s*G)
+    print(R + challenge * P)
+
+    return (R, s)
+
+
+#Verify Discrete log proof that Q = k*G for some k
+def verify_proof_R_dlog(P, proof):
+     
+    R, s = proof
+
+    #Compute the challenge as in the proof
+
+    challenge_data = point_to_bytes(P) + point_to_bytes(G) + point_to_bytes(R)
+
+    challenge = Fr(int.from_bytes(hashlib.sha256(challenge_data).digest(), byteorder='big'))
+
+    left = Integer(s)*G
+    right = R + challenge * P
+
+    print("Values in Verification")
+    print("left")
+    print(left)
+    print("right")
+    print(right)
+
+    return left == right
+
 
 def eval(k,x):
     H_x = hash_to_curve_bandersnatch(x)
@@ -72,25 +126,52 @@ def eval(k,x):
     Q = k * G
     
     # Generate witness vector
-    z = generate_witness_vector(k, H_x, F.random_point())
+    # z = generate_witness_vector(k, H_x, F.random_point())
     
     # Generate R1CS matrices
-    A, B, C = construct_R1CS_matrices(H_x, F.random_point())
+    # A, B, C = construct_R1CS_matrices(H_x, F.random_point())
 
     #TODO: Generate bulletproof argument
-    pi = generate_bulletproof_argument(A, B, C, z, G, G) 
+    # pi = generate_bulletproof_argument(A, B, C, z, G, G) 
 
 
-    return y, Y, pi
+    return y, Y
 
-def verify(vk, x, Y, pi):
+def verify(vk, x, Y):
 
     Q, pi_Q = vk
 
-    #TODO: Implemtne the verify_proof_R_H function
-    result = verify_proof_R_H(Q, x, Y, pi)
+    #Verify that Q has a valid proof
+    if not verify_proof_R_dlog(Q, pi_Q):
+        return False
+    
 
-    return result
+    #TODO: Implemtne the verify_proof_R_H function
+    #result = verify_proof_R_H(Q, x, Y, pi)
+
+    return True
+
+def test():
+    #Generate key
+    k, vk = keygen()
+
+    #print("Generated key pair:")
+    #print(f"Secret key k: {k}")
+    #print(f"Verification key Q: {vk[0]}")
+
+    # Evaluate the eVRF on some input
+    x = Fr.random_element()
+    y, Y = eval(k, x)
+    #print("\nEvaluated eVRF on input x =", x)
+    #print(f"Output y: {y}")
+    #print(f"Output Y: {Y}")
+
+    # Verify the eVRF output
+    result = verify(vk, x, Y)
+    print("\nVerification result:", result)
+
+test()
+
 
 # Construct the R1CS matrices A, B, C for the DDH relation
 def construct_R1CS_matrices(H_x, G_S):
