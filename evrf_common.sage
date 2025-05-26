@@ -139,11 +139,12 @@ def generate_inner_product_proof(G, H, G_base, H_base, P, omega, a, b, alpha):
     
     G_prime = e * G_base
     P_Prime = P + omega * G_prime
-    
+
+    print("P_Prime in generate:", P_Prime)
     return generate_modified_inner_product_proof(G, H, G_prime, H_base, P_Prime, a, b, alpha)
 
 def generate_modified_inner_product_proof(G, H, G_base, H_base, P, a, b, alpha):
-    """Generate modified inner product proof (recursive)"""
+    """Generate modified inner product proof (recursive) following the paper"""
     n = len(a)
     if n == 1:
         # Base case: vectors of length 1
@@ -151,13 +152,18 @@ def generate_modified_inner_product_proof(G, H, G_base, H_base, P, a, b, alpha):
         s = Fq.random_element()
         delta = Fq.random_element()
         eta = Fq.random_element()
-        
+
+       
         # Compute commitments A and B
-        A = r * G_base + s * H_base + (r * b[0] + s * a[0]) * G_base + delta * H_base
+        r_n_vec = vector(Fq, [r] * nm)
+        s_n_vec = vector(Fq, [s] * nm)
+        A = r * G[0] + s * H[0] + (r * b[0] + s * a[0]) * G_base + delta * H_base
         B = (r * s) * G_base + eta * H_base
         
         # Generate Fiat-Shamir challenge
-        e = compute_challenge([A, B])
+        challenge_data = point_to_bytes(A) + point_to_bytes(B)
+        e = Fq(int.from_bytes(hashlib.sha256(challenge_data).digest(), byteorder='big'))
+        
         
         # Compute responses
         r_prime = r + a[0] * e
@@ -177,51 +183,70 @@ def generate_modified_inner_product_proof(G, H, G_base, H_base, P, a, b, alpha):
     n_half = n // 2
     
     # Split vectors
-    a_L = a[:n_half]
-    a_R = a[n_half:]
-    b_L = b[:n_half]
-    b_R = b[n_half:]
-    G_L = G[:n_half]
-    G_R = G[n_half:]
-    H_L = H[:n_half]
-    H_R = H[n_half:]
+    a_1 = vector(Fq, a[:n_half]) 
+    a_2 = vector(Fq, a[n_half:])  
+    b_1 = vector(Fq, b[:n_half])  
+    b_2 = vector(Fq, b[n_half:])  
+    G_1 = G[:n_half]               
+    G_2 = G[n_half:]               
+    H_1 = H[:n_half]               
+    H_2 = H[n_half:]               
     
-    # Compute inner products for the left and right sides
-    c_L = inner_product(a_L, b_R)
-    c_R = inner_product(a_R, b_L)
+    # Compute inner products for cross terms
+    c_L = inner_product(a_1, b_2)  
+    c_R = inner_product(a_2, b_1)  
     
     # Sample random blinding factors
     d_L = Fq.random_element()
     d_R = Fq.random_element()
     
-    # Compute commitments L and R
-    L = inner_product(a_L, G_R) + inner_product(b_R, H_L) + c_L * G_base + d_L * H_base
-    R = inner_product(a_R, G_L) + inner_product(b_L, H_R) + c_R * G_base + d_R * H_base
+    # Compute commitments L and R according to the paper
+    # L = <a_1, G_2> + <b_2, H_1> + c_L * G + d_L * H
+    L = inner_product(a_1, G_2) + inner_product(b_2, H_1) + c_L * G_base + d_L * H_base
+    
+    # R = <a_2, G_1> + <b_1, H_2> + c_R * G + d_R * H
+    R = inner_product(a_2, G_1) + inner_product(b_1, H_2) + c_R * G_base + d_R * H_base
     
     # Generate Fiat-Shamir challenge
-    x = compute_challenge([L, R])
-    x_inv = pow(x, -1, q)
-
-    # Compute new generators and vectors for the next level
-    G_prime = [x_inv * g + x * h for g, h in zip(G_L, G_R)]
-    H_prime = [x * g + x_inv * h for g, h in zip(H_L, H_R)]
-    a_prime = [x * a + x_inv * b for a, b in zip(a_L, a_R)]
-    b_prime = [x_inv * a + x * b for a, b in zip(b_L, b_R)]
+    challenge_data = point_to_bytes(L) + point_to_bytes(R)
+    e = Fq(int.from_bytes(hashlib.sha256(challenge_data).digest(), byteorder='big'))
+    e_inv = e^(-1)
     
-    # Compute the new point P
-    P_prime = x^2 * L + P + pow(x, -2, q) * R
     
-    # Compute new alpha
-    alpha_prime = x^2 * d_L + alpha + pow(x, -2, q) * d_R
+    # G' = e^(-1) * G_1 + e * G_2
+    # H' = e * H_1 + e^(-1) * H_2
+    G_prime = []
+    H_prime = []
+    for i in range(n_half):
+        G_prime.append(e_inv * G_1[i] + e * G_2[i])
+        H_prime.append(e * H_1[i] + e_inv * H_2[i])
+    
+    # Compute new vectors for the next level
+    # a' = e * a_1 + e^(-1) * a_2
+    # b' = e^(-1) * b_1 + e * b_2
+    a_prime = []
+    b_prime = []
+    for i in range(n_half):
+        a_prime.append(e * a_1[i] + e_inv * a_2[i])
+        b_prime.append(e_inv * b_1[i] + e * b_2[i])
+    
+    
+    P_prime = e^2 * L + P + e^(-2) * R
+    
+    
+    alpha_prime = e^2 * d_L + alpha + e^(-2) * d_R
     
     # Recursively generate the inner product proof
-    inner_proof = generate_modified_inner_product_proof(G_prime, H_prime, G_base, H_base, P_prime, a_prime, b_prime, alpha_prime)
+    inner_proof = generate_modified_inner_product_proof(
+        G_prime, H_prime, G_base, H_base, P_prime, 
+        a_prime, b_prime, alpha_prime
+    )
     
-    # Combine the current level with the recursive proof
+    
     return {
         "L": L,
         "R": R,
-        "x": x,
+        "e": e,
         "inner_proof": inner_proof
     }
 
@@ -232,6 +257,8 @@ def verify_inner_product_proof(G, H, G_base, H_base, P, omega, proof):
 
     G_prime = e * G_base
     P_Prime = P + omega * G_prime
+
+    print("P_Prime in verify:", P_Prime)
     
     return verify_modified_inner_product_proof(G, H, G_prime, H_base, P_Prime, proof)
 
@@ -240,7 +267,7 @@ def verify_modified_inner_product_proof(G, H, G_base, H_base, P, proof):
     # Base case: vectors of length 1
     n = len(G)
     if n == 1:
-        # Extract the components of the final proof
+        
         A = proof["A"]
         B = proof["B"]
         e = proof["e"]
@@ -248,50 +275,65 @@ def verify_modified_inner_product_proof(G, H, G_base, H_base, P, proof):
         s_prime = proof["s_prime"]
         delta_prime = proof["delta_prime"]
         
+        # Verify the challenge matches what we'd compute
+        challenge_data = point_to_bytes(A) + point_to_bytes(B)
+        e_computed = Fq(int.from_bytes(hashlib.sha256(challenge_data).digest(), byteorder='big'))
+
+        if e != e_computed:
+            return False
+        
         left_side = e^2 * P + e * A + B
         
         # Build right side term by term
-        term1 = r_prime * e * G_base      # r'eG
-        term2 = s_prime * e * H_base      # s'eH
-        term3 = r_prime * s_prime * G_base # r's'G
-        term4 = delta_prime * H_base       # δ'H
+        term1 = r_prime * e * G[0]         
+        term2 = s_prime * e * H[0]         
+        term3 = r_prime * s_prime * G_base 
+        term4 = delta_prime * H_base       
         
         right_side = term1 + term2 + term3 + term4
         
         return left_side == right_side
     
     # Recursive case
-    # Extract components from the proof
+    
     L = proof["L"]
     R = proof["R"]
-    x = proof["x"]
+    e = proof["e"]
     inner_proof = proof["inner_proof"]
     
-    # Verify the challenge matches what we'd compute
-    if x != compute_challenge([L, R]):
+    
+    challenge_data = point_to_bytes(L) + point_to_bytes(R)
+    e_computed = Fq(int.from_bytes(hashlib.sha256(challenge_data).digest(), byteorder='big'))
+    if e != e_computed:
         return False
     
     # Calculate the new values for the recursive verification
     n_half = n // 2
-    G_L = G[:n_half]
-    G_R = G[n_half:]
-    H_L = H[:n_half]
-    H_R = H[n_half:]
+    G_1 = G[:n_half]
+    G_2 = G[n_half:]
+    H_1 = H[:n_half]
+    H_2 = H[n_half:]
     
-    x_inv = pow(x, -1, q)
+    e_inv = e^(-1)
 
-    # Compute new generators and vectors for the next level
-    G_prime = [x_inv * g + x * h for g, h in zip(G_L, G_R)]
-    H_prime = [x * g + x_inv * h for g, h in zip(H_L, H_R)]
+    # Compute new generators for the next level
+    # G' = e^(-1) * G_1 + e * G_2
+    # H' = e * H_1 + e^(-1) * H_2
+    G_prime = []
+    H_prime = []
+    for i in range(n_half):
+        G_prime.append(e_inv * G_1[i] + e * G_2[i])
+        H_prime.append(e * H_1[i] + e_inv * H_2[i])
     
-    # Compute the new point P'
-    P_prime = x^2 * L + P + pow(x, -2, q) * R
+    # Compute the new point P' = e^2 * L + P + e^(-2) * R
+    P_prime = e^2 * L + P + e^(-2) * R
     
     # Recursively verify the inner product proof
     return verify_modified_inner_product_proof(G_prime, H_prime, G_base, H_base, P_prime, inner_proof)
 
+
 def generate_bulletproof(A, B, C, T, z):
-    """Generate bulletproof for R1CS statement (shared implementation)"""
+    """Generate bulletproof for R1CS statement following the paper's R1CS* protocol"""
     m_b, n_b = A.nrows(), A.ncols()
 
     # In this implementation, z' is a zero vector and eta is 0 in Fq
@@ -303,140 +345,153 @@ def generate_bulletproof(A, B, C, T, z):
     x = vector(Fq, [z[i] for i in range(r)])
     y = vector(Fq, [z[i] for i in range(r, n_b)])
     
+    # Sample random r for S
+    r_random = Fq.random_element()
+    
     # Compute Az and Bz
     Az = A * z
     Bz = B * z
     
-    # Create zero vector of length n_b for the first part of the H term
+    # Step 1: Prover computes S
+    # S = ⟨((x'||y) || Az), G⟩ + ⟨(0^n || Bz), H⟩ + r·H
+    
+    x_prime = vector(Fq, [0] * r) 
+    x_prime_y_concat = vector(Fq, list(x_prime) + list(y))  
+    
+    # First part: ⟨((x'||y) || Az), G⟩
+    G_term_vec = vector(Fq, list(x_prime_y_concat) + list(Az))  
+    S_G_term = inner_product(G_term_vec, G_vec) 
+    
+    # Second part: ⟨(0^n || Bz), H⟩  
     zero_n = vector(Fq, [0] * n_b)
+    H_term_vec = vector(Fq, list(zero_n) + list(Bz))  
+    S_H_term = inner_product(H_term_vec, H_vec)
     
-    # Compute the first part: ⟨((x′||y) || Az), G⟩
-    # Since x' is all zeros (z_prime is all zeros), we only need (0r||y)
-    x_prime = vector(Fq, [0] * r)  # This is x′ (all zeros)
-    xy_concat = vector(Fq, list(x_prime) + list(y))  # Concatenate x′ and y
-    G_term_vec = vector(Fq, list(xy_concat) + list(Az))  # Concatenate (x′||y) with Az
-    G_term = 0
-    for i in range(len(G_term_vec)):
-        G_term += G_term_vec[i] * G_vec[i]
+    # Complete S computation
+    S = S_G_term + S_H_term + r_random * H
     
-    # Compute the second part: ⟨(0n|| Bz), H⟩
-    H_term_vec = vector(Fq, list(zero_n) + list(Bz))  # Concatenate 0n with Bz
-    H_term = 0
-    for i in range(len(H_term_vec)):
-        H_term += H_term_vec[i] * H_vec[i]
+    # Step 2: Use Fiat-Shamir to get verifier's challenges
+    transcript_data = point_to_bytes(S)
+    alpha = compute_challenge([transcript_data, b"alpha"])
+    beta = compute_challenge([transcript_data, b"beta"])
+    gamma = compute_challenge([transcript_data, b"gamma"])
+    delta = compute_challenge([transcript_data, b"delta"])
     
-    # Compute the final commitment S
-    S = G_term + H_term + r * H  # H_base is the single generator H from the paper
-    
-    # Use Fiat-Shamir to get the verifier's challenges
-    transcript_so_far = [s]
-    alpha = compute_challenge(transcript_so_far + [b"alpha"])
-    beta = compute_challenge(transcript_so_far + [b"beta"])
-    gamma = compute_challenge(transcript_so_far + [b"gamma"])
-    delta = compute_challenge(transcript_so_far + [b"delta"])
-
-    # Update transcript
-    transcript_so_far.extend([alpha, beta, gamma, delta])
-    
-    # Calculate intermediate values as per the paper
+    # Step 3: Compute intermediate values as per the paper
     mu = alpha * gamma
-
-    # calculate delta vector as in the protocol
+    
+    
     delta_vec = vector(Fq, n_b)
     for i in range(r):
         delta_vec[i] = delta
     for i in range(r, n_b):
         delta_vec[i] = 1
     
-    # Calculate delta_inv vector
+    # Construct δ^(-1) vector
+    delta_inv = delta^(-1)
     delta_inv_vec = vector(Fq, n_b)
     for i in range(r):
-        delta_inv_vec[i] = delta^(-1)
+        delta_inv_vec[i] = delta_inv
     for i in range(r, n_b):
         delta_inv_vec[i] = 1
-
-    # Construct G' vector with modified generators
+    
+    # Step 4: Construct G' vector with modified generators
+    # G' = (G_1, ..., G_n, γ^(-1)·G_{n+1}, ..., γ^(-m)·G_{n+m})
+    gamma_inv = gamma^(-1)
     G_prime = []
+    
     for i in range(n_b):
         G_prime.append(G_vec[i])
+    
     for i in range(m_b):
-        G_prime.append(gamma^(-1) * G_vec[n_b+i])
+        G_prime.append((gamma_inv^(i+1)) * G_vec[n_b + i])
     
-    # Compute vector c from the matrices
-    mu_vec = vector(Fq, [mu for i in range(m_b)])
-    beta_vec = vector(Fq, [beta for i in range(m_b)])
-    gamma_vec = vector(Fq, [gamma for i in range(m_b)])
-
-    A_mu = mu_vec * A
-    B_beta = beta_vec * B
-    C_gamma = gamma_vec * C
+    # Step 5: Compute vector c = μ^m A + β^m B - γ^m C
+    c = vector(Fq, n_b)
+    mu_vec = vector(Fq, m_b, [mu]*m_b)
+    beta_m_vec = vector(Fq, m_b, [beta]*m_b)
+    gamma_m_vec = vector(Fq, m_b, [gamma]*m_b)
     
-    c = A_mu + B_beta - C_gamma
+    c = mu_vec * A + beta_m_vec * B - gamma_m_vec * C
     
-    # Compute inner product value omega
+    # Step 6: Compute inner product value ω
+    # ω = ⟨α^m, β^m⟩ + δ² · ⟨α^n, c ◦ δ⟩
+    
+    alpha_vec = vector(Fq, m_b, [alpha] * m_b) 
     omega = 0
-    # Create vectors for first term
-    alpha_vec = vector(Fq, [alpha for i in range(m_b)])
-    beta_vec = vector(Fq, [beta for i in range(m_b)])
-    omega = inner_product(alpha_vec, beta_vec)
+    
+    omega += inner_product(alpha_vec, beta_m_vec)  # First term: ⟨α^m, β^m⟩
+    
+    alpha_n_vec = vector(Fq, n_b, [alpha] * n_b)  
+    
+    c_hadamard_delta = hadamard_product(c, delta_vec)
+    omega += (delta^2) * inner_product(alpha_n_vec, c_hadamard_delta)
+    
 
-    # Create vectors for second term 
-    alpha_vec2 = vector(Fq, [alpha for i in range(n_b)])
-    h_product = hadamard_product(c, delta_vec)
+    # Step 7: Compute the public point P
+    # P = δ^(-1) · T + S + ⟨(δ² · α^n || -β^m), G'⟩ + ⟨(c ◦ δ || -α^m), H⟩
     
-    delta_c_product = inner_product(alpha_vec2, h_product)
-    omega += delta^2 * delta_c_product
+    P = delta_inv * T + S
     
-    # Compute the public point P
-    P = delta_inv_vec[0] * T + S
     
-    # Add the G' term
-    G_prime_term = 0
-    for i in range(n_b):
-        G_prime_term += delta^2 * alpha^(i+1) * G_prime[i]
-    for i in range(m_b):
-        G_prime_term -= beta^(i+1) * G_prime[n_b+i]
-    P += G_prime_term
-    
-    # Add the H term
-    H_term = 0
-    for i in range(n_b):
-        H_term += c[i] * delta_vec[i] * H_vec[i]
-    for i in range(m_b):
-        H_term -= alpha^(i+1) * H_vec[n_b+i]
-    P += H_term
+    delta_times_alpha_n = delta^2 * alpha_n_vec
 
-    # The prover computes vectors u and v for the inner product argument
-    # Initialize u vector
-    u = vector(Fq, n_b+m_b)
+    beta_m_vec_neg = vector(Fq, m_b, [-beta] * m_b)  
+
+    alpha_beta_G_prime_term = inner_product(
+        vector(Fq, list(delta_times_alpha_n) + list(beta_m_vec_neg)), 
+        G_prime
+    )
+
     
-    # First part (x'||y) + delta^(-1) * (x||y') + delta^2 * alpha^n_b
-    for i in range(r):
-        u[i] = z_prime[i] + delta_inv_vec[i] * z[i] + delta^2 * alpha^(i+1)
-    for i in range(r, n_b):
-        u[i] = z[i] + delta_inv_vec[i] * z_prime[i] + delta^2 * alpha^(i+1)
+    P += alpha_beta_G_prime_term
+    alpha_m_vec_neg = vector(Fq, m_b, [-alpha] * m_b)  
+
+    c_delta_alpha_term = vector(Fq, list(c_hadamard_delta) + list(alpha_m_vec_neg))
+
     
-    # Second part (Az + delta^(-1) * Az') * gamma^m_b - beta^m_b
-    Az_prime = A * z_prime  # This is a zero vector since z_prime is zero
-    for i in range(m_b):
-        u[n_b+i] = (Az[i] + delta_inv_vec[0] * Az_prime[i]) * gamma^(i+1) - beta^(i+1)
+    P += inner_product(c_delta_alpha_term, H_vec)
     
-    # Initialize v vector
-    v = vector(Fq, n_b+m_b)
+
     
-    # First part c * delta
-    for i in range(n_b):
-        v[i] = c[i] * delta_vec[i]
+    # Step 8: Construct vectors u and v for the inner product argument
+    # u = ((x'||y) + δ^(-1) · (x||y') + δ² · α^n || (Az + δ^(-1) · Az') ◦ γ^m - β^m)
     
-    # Second part Bz - alpha^m_b + delta^(-1) * Bz'
-    Bz_prime = B * z_prime  # This is a zero vector since z_prime is zero
-    for i in range(m_b):
-        v[n_b+i] = Bz[i] - alpha^(i+1) + delta_inv_vec[0] * Bz_prime[i]
     
-    # Compute eta'
-    eta_prime = r + delta_inv_vec[0] * eta
+    y_prime = vector(Fq, [0] * (n_b - r)) 
+
+    x_y_prime_concat = vector(Fq, list(x) + list(y_prime))
+
+    first_term = x_prime_y_concat + delta_inv * x_y_prime_concat + delta^2 * alpha_n_vec
+
     
-    # Initialize the inner product argument
+    Az_prime = A * z_prime  
+
+    delta_inv_Az_prime = delta_inv * Az_prime 
+
+    Az_gamma_m = hadamard_product(Az + delta_inv_Az_prime, gamma_m_vec)
+    
+    Az_gamma_m_minus_beta_m = Az_gamma_m - beta_m_vec
+
+    u = vector(Fq, list(first_term) + list(Az_gamma_m_minus_beta_m))
+
+    
+    # Step 9: Construct vector v
+    # v = (c ◦ δ || Bz - α^m + δ^(-1) · Bz')
+    
+    alpha_m_vec = vector(Fq, m_b, [alpha] * m_b)
+    Bz_prime = B * z_prime 
+    delta_inv_Bz_prime = delta_inv * Bz_prime
+    Bz_minus_alpha_m = Bz - alpha_m_vec
+    second_part_of_v = Bz_minus_alpha_m + delta_inv_Bz_prime
+
+    v = vector(Fq, list(c_hadamard_delta) + list(second_part_of_v))
+
+    
+    # Step 10: Compute η'
+    eta_prime = r_random + delta_inv_vec[0] * eta 
+    
+    # Step 11: Generate the inner product proof
     inner_product_proof = generate_inner_product_proof(G_prime, H_vec, G, H, P, omega, u, v, eta_prime)
     
     # Return the complete bulletproof
@@ -452,7 +507,7 @@ def generate_bulletproof(A, B, C, T, z):
     }
 
 def verify_bulletproof(A, B, C, T, proof):
-    """Verify bulletproof for R1CS statement (shared implementation)"""
+    """Verify bulletproof for R1CS statement following the paper's R1CS* protocol"""
     # Extract proof components
     S = proof["S"]
     challenges = proof["challenges"]
@@ -462,78 +517,80 @@ def verify_bulletproof(A, B, C, T, proof):
     delta = challenges["delta"]
     inner_product_proof = proof["inner_product_proof"]
 
-    m, n = A.nrows(), A.ncols()
-    
-    r = 3 # r is the size of x in the witness vector z = (x||y)
-    
-    # Calculate intermediate values as in the proof generation
+    m_b, n_b = A.nrows(), A.ncols()
+    r = 3  # Size of x in the witness vector z = (x||y)
+     
     mu = alpha * gamma
-
-    # Create delta vector
-    delta_vec = vector(Fq, n)
+    
+    
+    delta_vec = vector(Fq, n_b)
     for i in range(r):
         delta_vec[i] = delta
-    for i in range(r, n):
+    for i in range(r, n_b):
         delta_vec[i] = 1
     
-    # Calculate delta_inv vector
-    delta_inv_vec = vector(Fq, n)
+    # Construct δ^(-1) vector
+    delta_inv = delta^(-1)
+    delta_inv_vec = vector(Fq, n_b)
     for i in range(r):
-        delta_inv_vec[i] = delta^(-1)
-    for i in range(r, n):
+        delta_inv_vec[i] = delta_inv
+    for i in range(r, n_b):
         delta_inv_vec[i] = 1
-
-    # Construct G' vector with modified generators
+    
+    # G' = (G_1, ..., G_n, γ^(-1)·G_{n+1}, ..., γ^(-m)·G_{n+m})
+    gamma_inv = gamma^(-1)
     G_prime = []
-    for i in range(n):
+    
+    for i in range(n_b):
         G_prime.append(G_vec[i])
-    for i in range(m):
-        G_prime.append(gamma^(-1) * G_vec[n+i])
     
-    # Compute vector c from the matrices
-    mu_vec = vector(Fq, [mu for i in range(m)])
-    beta_vec = vector(Fq, [beta for i in range(m)])
-    gamma_vec = vector(Fq, [gamma for i in range(m)])
+    for i in range(m_b):
+        G_prime.append((gamma_inv^(i+1)) * G_vec[n_b + i])
     
-    A_mu = mu_vec * A
-    B_beta = beta_vec * B
-    C_gamma = gamma_vec * C
-
-    c = A_mu + B_beta - C_gamma
+    # Compute vector c = μ^m A + β^m B - γ^m C
+    c = vector(Fq, n_b)
+    mu_vec = vector(Fq, m_b, [mu]*m_b)
+    beta_m_vec = vector(Fq, m_b, [beta]*m_b)
+    gamma_m_vec = vector(Fq, m_b, [gamma]*m_b)
     
-    # Compute inner product value omega
+    c = mu_vec * A + beta_m_vec * B - gamma_m_vec * C
+    
+    # Compute inner product value ω
+    # ω = ⟨α^m, β^m⟩ + δ² · ⟨α^n, c ◦ δ⟩
+    
+    alpha_vec = vector(Fq, m_b, [alpha] * m_b) 
     omega = 0
-    # Create vectors for first term
-    alpha_vec = vector(Fq, [alpha for i in range(m)])
-    beta_vec = vector(Fq, [beta for i in range(m)])
-    omega = inner_product(alpha_vec, beta_vec)
-
-    # Create vectors for second term 
-    alpha_vec2 = vector(Fq, [alpha for i in range(n)])
-    h_product = hadamard_product(c, delta_vec)
     
-    delta_c_product = inner_product(alpha_vec2, h_product)
-    omega += delta^2 * delta_c_product
+    omega += inner_product(alpha_vec, beta_m_vec)  # First term: ⟨α^m, β^m⟩
+    
+    alpha_n_vec = vector(Fq, n_b, [alpha] * n_b)  
+    
+    c_hadamard_delta = hadamard_product(c, delta_vec)
+    omega += (delta^2) * inner_product(alpha_n_vec, c_hadamard_delta)
+
 
     # Compute the public point P
-    P = delta_inv_vec[0] * T + S
+    # P = δ^(-1) · T + S + ⟨(δ² · α^n || -β^m), G'⟩ + ⟨(c ◦ δ || -α^m), H⟩
     
-    # Add the G' term
-    G_prime_term = 0
-    for i in range(n):
-        G_prime_term += delta^2 * alpha^(i+1) * G_prime[i]
-    for i in range(m):
-        G_prime_term -= beta^(i+1) * G_prime[n+i]
-    P += G_prime_term
+    P = delta_inv * T + S
     
-    # Add the H term
-    H_term = 0
-    for i in range(n):
-        H_term += c[i] * delta_vec[i] * H_vec[i]
-    for i in range(m):
-        H_term -= alpha^(i+1) * H_vec[n+i]
-    P += H_term
+    
+    delta_times_alpha_n = delta^2 * alpha_n_vec
 
+    beta_m_vec_neg = vector(Fq, m_b, [-beta] * m_b)  
+
+    alpha_beta_G_prime_term = inner_product(
+        vector(Fq, list(delta_times_alpha_n) + list(beta_m_vec_neg)), 
+        G_prime
+    )
+
+    P += alpha_beta_G_prime_term
+    alpha_m_vec_neg = vector(Fq, m_b, [-alpha] * m_b)  
+
+    c_delta_alpha_term = vector(Fq, list(c_hadamard_delta) + list(alpha_m_vec_neg))
+
+    P += inner_product(c_delta_alpha_term, H_vec)
+    
     # Verify the inner product proof
     return verify_inner_product_proof(G_prime, H_vec, G, H, P, omega, inner_product_proof)
 

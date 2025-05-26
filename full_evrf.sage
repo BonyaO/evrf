@@ -101,7 +101,7 @@ def generate_witness_vector(y, X1, X2, k):
         
         # Compute L_i points
         L_i_values = []
-        L_i = Delta_i_values[0]  # L_0 = Δ_0
+        L_i = Delta_i_values[0]  
         L_i_values.append(L_i)
         
         # Check if L_0 = 0, if so reject
@@ -109,8 +109,8 @@ def generate_witness_vector(y, X1, X2, k):
             return "reject"
         
         # Add x_L_0, y_L_0 to witness
-        z[witness_idx] = L_i[0]      # x_L_0^(j)
-        z[witness_idx + 1] = L_i[1]  # y_L_0^(j)
+        z[witness_idx] = L_i[0]      
+        z[witness_idx + 1] = L_i[1]  
         witness_idx += 2
         
         s_i_values = []
@@ -147,9 +147,9 @@ def generate_witness_vector(y, X1, X2, k):
             s_i_values.append(s_i)
             
             # Add w_i^(j) = (s_i^(j), x_L_i^(j), y_L_i^(j)) to witness
-            z[witness_idx] = s_i        # s_i^(j)
-            z[witness_idx + 1] = L_i[0] # x_L_i^(j)
-            z[witness_idx + 2] = L_i[1] # y_L_i^(j)
+            z[witness_idx] = s_i        
+            z[witness_idx + 1] = L_i[0] 
+            z[witness_idx + 2] = L_i[1] 
             witness_idx += 3
        
     return z
@@ -213,20 +213,20 @@ def R1CSMatricesFull(X1, X2, k_prime):
     # Build the constraint matrices row by row
     
     # Row 1: k = sum_{i=0}^ell 2^i * k_i
-    A[0] = e(0)  # 1
-    B[0] = e(1)  # k
+    A[0] = e(0)  
+    B[0] = e(1)  
     C[0] = sum(2^i * e(3+i) for i in range(ell+1))
     
     # Row 2: y = k' * x_L_ell^(1) + x_L_ell^(2)
-    A[1] = e(0)  # 1
-    B[1] = e(2)  # y
+    A[1] = e(0)  
+    B[1] = e(2)  
     C[1] = k_prime * e(4+4*ell) + e(6+7*ell)
     
     # Rows 3+i: k_i * (1 - k_i) = 0 for i in {0, ..., ell}
     for i in range(ell + 1):
-        A[2+i] = e(3+i)  # k_i
-        B[2+i] = e(0) - e(3+i)  # 1 - k_i
-        C[2+i] = vector([0] * n)  # 0
+        A[2+i] = e(3+i)  
+        B[2+i] = e(0) - e(3+i)  
+        C[2+i] = vector([0] * n)  
     
     # Current row index
     row = 3 + ell
@@ -234,23 +234,23 @@ def R1CSMatricesFull(X1, X2, k_prime):
     # Constraints for j=1 and j=2
     for j in [1, 2]:
         # Row 3+ell+j: x_L_0^(j) constraint
-        A[row] = e(0)  # 1
+        A[row] = e(0)  
         B[row] = Delta_values[j][0]['x_0'] * e(0) + Delta_values[j][0]['delta_x'] * e(3)
-        C[row] = e(4+ell+(j-1)*(3*ell+2))  # x_L_0^(j)
+        C[row] = e(4+ell+(j-1)*(3*ell+2))  
         row += 1
     
     # Row 5+ell+j: y_L_0^(j) constraint
     for j in [1, 2]:
-        A[row] = e(0)  # 1
+        A[row] = e(0)  
         B[row] = Delta_values[j][0]['y_0'] * e(0) + Delta_values[j][0]['delta_y'] * e(3)
-        C[row] = e(5+ell+(j-1)*(3*ell+2))  # y_L_0^(j)
+        C[row] = e(5+ell+(j-1)*(3*ell+2))  
         row += 1
     
     # Constraints for each iteration i in [1, ..., ell]
     for j in [1, 2]:
         for i in range(1, ell + 1):
             # Row 5+j+2i+ell: s_i^(j) constraint
-            A[row] = e(3+ell+3*i+(j-1)*(3*ell+2))  # s_i^(j)
+            A[row] = e(3+ell+3*i+(j-1)*(3*ell+2)) 
             B[row] = (e(4+ell+3*(i-1)+(j-1)*(3*ell+2)) - 
                      Delta_values[j][i]['x_0'] * e(0) - 
                      Delta_values[j][i]['delta_x'] * e(3+i))
@@ -263,8 +263,8 @@ def R1CSMatricesFull(X1, X2, k_prime):
     for j in [1, 2]:
         for i in range(1, ell + 1):
             # Row 5+j+2i+3*ell: x_L_i^(j) constraint
-            A[row] = e(3+ell+3*i+(j-1)*(3*ell+2))  # s_i^(j)
-            B[row] = e(3+ell+3*i+(j-1)*(3*ell+2))  # s_i^(j)
+            A[row] = e(3+ell+3*i+(j-1)*(3*ell+2))  
+            B[row] = e(3+ell+3*i+(j-1)*(3*ell+2))  
             C[row] = (e(4+ell+3*i+(j-1)*(3*ell+2)) + 
                      e(4+ell+3*(i-1)+(j-1)*(3*ell+2)) + 
                      Delta_values[j][i]['x_0'] * e(0) + 
@@ -275,7 +275,7 @@ def R1CSMatricesFull(X1, X2, k_prime):
     for j in [1, 2]:
         for i in range(1, ell + 1):
             # Row 5+j+2i+5*ell: y_L_i^(j) constraint
-            A[row] = e(3+ell+3*i+(j-1)*(3*ell+2))  # s_i^(j)
+            A[row] = e(3+ell+3*i+(j-1)*(3*ell+2))  
             B[row] = (e(4+ell+3*(i-1)+(j-1)*(3*ell+2)) - 
                      e(4+ell+3*i+(j-1)*(3*ell+2)))
             C[row] = (e(5+ell+3*(i-1)+(j-1)*(3*ell+2)) + 

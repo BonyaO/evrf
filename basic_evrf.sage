@@ -171,53 +171,53 @@ def R1CSMatrices(X):
     e = lambda i: vector([1 if j == i else 0 for j in range(n_basic)])
     
     # Constraint 1: k = sum_i=0^ell 2^i * k_i
-    A[0] = e(0)  # 1
-    B[0] = e(1)  # k
+    A[0] = e(0)  
+    B[0] = e(1)  
     C[0] = e(3) + sum(2^i * e(6+(i-1)*4) for i in range(1, ell+1))
     
     # Constraint 2: x_P = x_L_ell
-    A[1] = e(0)  # 1
-    B[1] = e(2)  # x_P
-    C[1] = e(4*ell+4)  # x_L_ell
+    A[1] = e(0)  
+    B[1] = e(2)  
+    C[1] = e(4*ell+4)  
     
     # Constraint 3: k_0 * (1 - k_0) = 0 (ensuring k_0 ∈ {0, 1})
-    A[2] = e(3)  # k_0
-    B[2] = e(0) - e(3)  # 1 - k_0
-    C[2] = vector([0] * n_basic)  # 0
+    A[2] = e(3)  
+    B[2] = e(0) - e(3)  
+    C[2] = vector([0] * n_basic)  
     
     # Constraints 3+i: k_i * (1 - k_i) = 0 (ensuring k_i ∈ {0, 1})
     for i in range(1, ell+1):
         idx = 2 + i
-        A[idx] = e(6+(i-1)*4)  # k_i
-        B[idx] = e(0) - e(6+(i-1)*4)  # 1 - k_i
-        C[idx] = vector([0] * n_basic)  # 0
+        A[idx] = e(6+(i-1)*4) 
+        B[idx] = e(0) - e(6+(i-1)*4)  
+        C[idx] = vector([0] * n_basic)  
     
     # Constraint 4+ell: Verify x_L_0 is computed correctly
-    A[3+ell] = e(0)  # 1
-    B[3+ell] = Delta_i_0[0][0] * e(0) + delta_x[0] * e(3)  # x_Delta_0,0 + delta_x,0 * k_0
-    C[3+ell] = e(4)  # x_L_0
+    A[3+ell] = e(0)  
+    B[3+ell] = Delta_i_0[0][0] * e(0) + delta_x[0] * e(3)  
+    C[3+ell] = e(4)  
     
     # Constraint 5+ell: Verify y_L_0 is computed correctly
-    A[4+ell] = e(0)  # 1
-    B[4+ell] = Delta_i_0[0][1] * e(0) + delta_y[0] * e(3)  # y_Delta_0,0 + delta_y,0 * k_0
-    C[4+ell] = e(5)  # y_L_0
+    A[4+ell] = e(0)  
+    B[4+ell] = Delta_i_0[0][1] * e(0) + delta_y[0] * e(3)  
+    C[4+ell] = e(5)  
     
     # Constraints for each addition step
     for i in range(1, ell+1):
         # Constraint 5+ell+i: Verify s_i is computed correctly
-        A[4+ell+i] = e(4*i+3)  # s_i
-        B[4+ell+i] = e(4*(i-1)+4) - (Delta_i_0[i][0] * e(0) + delta_x[i] * e(6+(i-1)*4))  # x_L_(i-1) - (x_Delta_i,0 + delta_x,i * k_i)
-        C[4+ell+i] = e(4*(i-1)+5) - (Delta_i_0[i][1] * e(0) + delta_y[i] * e(6+(i-1)*4))  # y_L_(i-1) - (y_Delta_i,0 + delta_y,i * k_i)
+        A[4+ell+i] = e(4*i+3) 
+        B[4+ell+i] = e(4*(i-1)+4) - (Delta_i_0[i][0] * e(0) + delta_x[i] * e(6+(i-1)*4))  
+        C[4+ell+i] = e(4*(i-1)+5) - (Delta_i_0[i][1] * e(0) + delta_y[i] * e(6+(i-1)*4))  
         
         # Constraint 5+2*ell+i: Verify x_L_i is computed correctly
-        A[4+2*ell+i] = e(4*i+3)  # s_i
-        B[4+2*ell+i] = e(4*i+3)  # s_i
-        C[4+2*ell+i] = e(4*i+4) + e(4*(i-1)+4) + Delta_i_0[i][0] * e(0) + delta_x[i] * e(6+(i-1)*4)  # x_L_i + x_L_(i-1) + x_Delta_i,0 + delta_x,i * k_i
+        A[4+2*ell+i] = e(4*i+3)  
+        B[4+2*ell+i] = e(4*i+3)  
+        C[4+2*ell+i] = e(4*i+4) + e(4*(i-1)+4) + Delta_i_0[i][0] * e(0) + delta_x[i] * e(6+(i-1)*4)  
         
         # Constraint 5+3*ell+i: Verify y_L_i is computed correctly
-        A[4+3*ell+i] = e(4*i+3)  # s_i
-        B[4+3*ell+i] = e(4*(i-1)+4) - e(4*i+4)  # x_L_(i-1) - x_L_i
-        C[4+3*ell+i] = e(4*(i-1)+5) + e(4*i+5)  # y_L_(i-1) + y_L_i
+        A[4+3*ell+i] = e(4*i+3)  
+        B[4+3*ell+i] = e(4*(i-1)+4) - e(4*i+4)  
+        C[4+3*ell+i] = e(4*(i-1)+5) + e(4*i+5)  
     
     # Pad with zeros to reach power of 2 dimension
     A_padded = matrix(Fq, m_basic, n_basic)
