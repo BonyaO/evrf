@@ -17,10 +17,10 @@ G_vec = [find_subgroup_generator(E, q) for _ in range(n+m)]
 # Construct H vector
 H_vec = [find_subgroup_generator(E, q) for _ in range(n+m)]
 
-G = G_vec[0]
-H = H_vec[0]
+G = find_subgroup_generator(E, q)
+H = find_subgroup_generator(E, q)
 
-
+G1 = G_vec[0]
 GT1 = G_vec[1]
 GT2 = G_vec[2]
 
@@ -318,10 +318,8 @@ def eval(sk,x):
     # Compute the final output y using the leftover hash lemma extraction
     y = (k_prime * x_P1 + x_P2) % q
     
-    # Set Y = y * GT2
     Y = y * GT2
     
-    # Generate a zero-knowledge proof that Y is computed correctly
     # First, generate proofs for the discrete logarithm relations
     pi_Q = proof_R_dlog(Q, GT1, k)
     pi_Y = proof_R_dlog(Y, GT2, y)
@@ -332,7 +330,10 @@ def eval(sk,x):
     # Generate R1CS matrices
     A, B, C = R1CSMatricesFull(X1, X2, k_prime)
 
-    T = G_vec[0] + Q + Y
+    # print the dimensions of the matrices
+    print(f"A dimensions: rows: {A.nrows()} x {A.ncols()} columns")
+
+    T = G1 + Q + Y
     
     # Generate bulletproof for both R1CS statements
     pi_BP = generate_bulletproof(A, B, C, T, z)
@@ -343,8 +344,6 @@ def eval(sk,x):
         "pi_Y": pi_Y,
         "pi_BP1": pi_BP,
     }
-    
-
     return y, Y, pi
 
 
@@ -370,7 +369,7 @@ def verify(vk, x, Y, pi):
     # Verify the bulletproof for the R1CS statement
     A, B, C = R1CSMatricesFull(X1, X2, k_prime)
     
-    T = G_vec[0] + Q + Y
+    T = G1 + Q + Y
     
     return verify_bulletproof(A, B, C, T, pi_BP1)
     

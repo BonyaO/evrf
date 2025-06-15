@@ -140,7 +140,7 @@ def generate_inner_product_proof(G, H, G_base, H_base, P, omega, a, b, alpha):
     G_prime = e * G_base
     P_Prime = P + omega * G_prime
 
-    print("P_Prime in generate:", P_Prime)
+    
     return generate_modified_inner_product_proof(G, H, G_prime, H_base, P_Prime, a, b, alpha)
 
 def generate_modified_inner_product_proof(G, H, G_base, H_base, P, a, b, alpha):
@@ -155,8 +155,8 @@ def generate_modified_inner_product_proof(G, H, G_base, H_base, P, a, b, alpha):
 
        
         # Compute commitments A and B
-        r_n_vec = vector(Fq, [r] * nm)
-        s_n_vec = vector(Fq, [s] * nm)
+        r_n_vec = vector(Fq, [r] * n)
+        s_n_vec = vector(Fq, [s] * n)
         A = r * G[0] + s * H[0] + (r * b[0] + s * a[0]) * G_base + delta * H_base
         B = (r * s) * G_base + eta * H_base
         
@@ -258,7 +258,7 @@ def verify_inner_product_proof(G, H, G_base, H_base, P, omega, proof):
     G_prime = e * G_base
     P_Prime = P + omega * G_prime
 
-    print("P_Prime in verify:", P_Prime)
+    
     
     return verify_modified_inner_product_proof(G, H, G_prime, H_base, P_Prime, proof)
 
@@ -285,12 +285,13 @@ def verify_modified_inner_product_proof(G, H, G_base, H_base, P, proof):
         left_side = e^2 * P + e * A + B
         
         # Build right side term by term
-        term1 = r_prime * e * G[0]         
-        term2 = s_prime * e * H[0]         
-        term3 = r_prime * s_prime * G_base 
+        term1 = (r_prime * e )* G[0]         
+        term2 = (s_prime * e )* H[0]         
+        term3 = (r_prime * s_prime) * G_base 
         term4 = delta_prime * H_base       
         
         right_side = term1 + term2 + term3 + term4
+        
         
         return left_side == right_side
     
@@ -387,6 +388,7 @@ def generate_bulletproof(A, B, C, T, z):
     for i in range(r, n_b):
         delta_vec[i] = 1
     
+    
     # Construct δ^(-1) vector
     delta_inv = delta^(-1)
     delta_inv_vec = vector(Fq, n_b)
@@ -394,6 +396,7 @@ def generate_bulletproof(A, B, C, T, z):
         delta_inv_vec[i] = delta_inv
     for i in range(r, n_b):
         delta_inv_vec[i] = 1
+    
     
     # Step 4: Construct G' vector with modified generators
     # G' = (G_1, ..., G_n, γ^(-1)·G_{n+1}, ..., γ^(-m)·G_{n+m})
@@ -405,6 +408,7 @@ def generate_bulletproof(A, B, C, T, z):
     
     for i in range(m_b):
         G_prime.append((gamma_inv^(i+1)) * G_vec[n_b + i])
+
     
     # Step 5: Compute vector c = μ^m A + β^m B - γ^m C
     c = vector(Fq, n_b)
@@ -414,6 +418,7 @@ def generate_bulletproof(A, B, C, T, z):
     
     c = mu_vec * A + beta_m_vec * B - gamma_m_vec * C
     
+    assert len(c) == n_b, "Vector c must have the same length as the number of columns in A, B, C"
     # Step 6: Compute inner product value ω
     # ω = ⟨α^m, β^m⟩ + δ² · ⟨α^n, c ◦ δ⟩
     
@@ -427,7 +432,7 @@ def generate_bulletproof(A, B, C, T, z):
     c_hadamard_delta = hadamard_product(c, delta_vec)
     omega += (delta^2) * inner_product(alpha_n_vec, c_hadamard_delta)
     
-
+    
     # Step 7: Compute the public point P
     # P = δ^(-1) · T + S + ⟨(δ² · α^n || -β^m), G'⟩ + ⟨(c ◦ δ || -α^m), H⟩
     
@@ -528,6 +533,7 @@ def verify_bulletproof(A, B, C, T, proof):
         delta_vec[i] = delta
     for i in range(r, n_b):
         delta_vec[i] = 1
+
     
     # Construct δ^(-1) vector
     delta_inv = delta^(-1)
@@ -536,6 +542,7 @@ def verify_bulletproof(A, B, C, T, proof):
         delta_inv_vec[i] = delta_inv
     for i in range(r, n_b):
         delta_inv_vec[i] = 1
+    
     
     # G' = (G_1, ..., G_n, γ^(-1)·G_{n+1}, ..., γ^(-m)·G_{n+m})
     gamma_inv = gamma^(-1)
@@ -547,6 +554,7 @@ def verify_bulletproof(A, B, C, T, proof):
     for i in range(m_b):
         G_prime.append((gamma_inv^(i+1)) * G_vec[n_b + i])
     
+    
     # Compute vector c = μ^m A + β^m B - γ^m C
     c = vector(Fq, n_b)
     mu_vec = vector(Fq, m_b, [mu]*m_b)
@@ -554,6 +562,7 @@ def verify_bulletproof(A, B, C, T, proof):
     gamma_m_vec = vector(Fq, m_b, [gamma]*m_b)
     
     c = mu_vec * A + beta_m_vec * B - gamma_m_vec * C
+    
     
     # Compute inner product value ω
     # ω = ⟨α^m, β^m⟩ + δ² · ⟨α^n, c ◦ δ⟩
@@ -568,7 +577,7 @@ def verify_bulletproof(A, B, C, T, proof):
     c_hadamard_delta = hadamard_product(c, delta_vec)
     omega += (delta^2) * inner_product(alpha_n_vec, c_hadamard_delta)
 
-
+    
     # Compute the public point P
     # P = δ^(-1) · T + S + ⟨(δ² · α^n || -β^m), G'⟩ + ⟨(c ◦ δ || -α^m), H⟩
     
@@ -590,6 +599,7 @@ def verify_bulletproof(A, B, C, T, proof):
     c_delta_alpha_term = vector(Fq, list(c_hadamard_delta) + list(alpha_m_vec_neg))
 
     P += inner_product(c_delta_alpha_term, H_vec)
+    
     
     # Verify the inner product proof
     return verify_inner_product_proof(G_prime, H_vec, G, H, P, omega, inner_product_proof)

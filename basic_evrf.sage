@@ -1,5 +1,6 @@
 # basic_evrf.sage - Basic eVRF implementation using shared components
 load("evrf_common.sage")
+import time
 
 # =============================================================================
 # BASIC eVRF SPECIFIC SETUP
@@ -15,16 +16,20 @@ m_basic = 2^(ceil(log(m_prime_basic + n_basic, 2))) - n_basic
 G_vec = [find_subgroup_generator(E, q) for _ in range(n_basic + m_basic)]
 H_vec = [find_subgroup_generator(E, q) for _ in range(n_basic + m_basic)]
 
-G = G_vec[0]
-H = H_vec[0]
+G = find_subgroup_generator(E, q)
+H = find_subgroup_generator(E, q)
+
+G1 = G_vec[0]
+GT1 = G_vec[1]
+GT2 = G_vec[2]
 
 # GT1 generator - using a fixed point for consistency
-GT1 = E([0x17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb,
+"""GT1 = E([0x17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb,
 0x08b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1])
-assert (q*GT1).is_zero()
+assert (q*GT1).is_zero()"""
 
 # GT2 generator
-GT2 = find_subgroup_generator(E, q)
+#GT2 = find_subgroup_generator(E, q)
 
 # GS generator
 GS = find_subgroup_generator(F, s)
@@ -51,10 +56,7 @@ def keygen():
     #verification key
     Q = k * GT1
 
-    #Schnorr proof to generate pi_Q
-    pi_Q = proof_R_dlog(Q, GT1, k)
-
-    vk = (Q, pi_Q)
+    vk = Q
 
     return k, vk
 
@@ -247,7 +249,6 @@ def eval(k,x):
     x_P = P[0]  
     y_P = P[1]  
     
-    
     # Set y = x_P ∈ F_q and Y = y · G_T,2
     y = x_P
     Y = y * GT2
@@ -256,7 +257,9 @@ def eval(k,x):
 
     A, B, C = R1CSMatrices(H_x)
 
-    T = GT1 + Q + Y 
+    T = G1 + Q + Y 
+
+    
 
     # Step 1: Generate Schnorr proof for Q = k*G_T1
     pi_Q = proof_R_dlog(Q, GT1, k)
@@ -264,17 +267,19 @@ def eval(k,x):
     # Step 2: Generate Schnorr proof for Y = x_P*G_T2
     pi_Y = proof_R_dlog(Y, GT2, x_P)
     
+    start_time = time.time()
     # Step 3: Generate Bulletproof for the R1CS statement
     pi_BP = generate_bulletproof(A, B, C, T, z)
+
+
+    proof_time = time.time() - start_time
+    print(f"Proof generation time: {proof_time:.4f} seconds")
     
-    # Combine all
-   
     pi = {
         "pi_Q": pi_Q,
         "pi_Y": pi_Y,
         "pi_BP": pi_BP
     }
-    
 
     return y, Y, pi
 
@@ -286,11 +291,10 @@ def verify(vk, x, Y, pi):
     pi_BP = pi["pi_BP"]
 
     # Extract Q and Y from vk
-    Q = vk[0]
-    Y_vk = vk[1]
+    Q = vk
 
     #Define commitment T
-    T = GT1 + Q + Y
+    T = G1 + Q + Y
     # Step 1: Verify Schnorr proof for Q = k*G_T1 
     if not verify_proof_R_dlog(Q, GT1, pi_Q):
         return False
@@ -298,6 +302,7 @@ def verify(vk, x, Y, pi):
     # Step 2: Verify Schnorr proof for Y = x_P*G_T2
     if not verify_proof_R_dlog(Y, GT2, pi_Y):
         return False
+
     H_x = hash_to_curve_gs(Q, x)
     # Step 3: Verify Bulletproof for the R1CS statement
     A, B, C = R1CSMatrices(H_x)
@@ -309,20 +314,18 @@ def verify(vk, x, Y, pi):
     return True
 
 
-
 def test():
     # Generate a random private key
     k, vk = keygen()
 
     # Generate a random x
     x = Fq.random_element()
+    
+    # Evaluate the eVRF
+    y_evrf, Y, pi = eval(k, x)
 
-    # Compute the public key Y
-    y, Y, pi = eval(k, x)
-
-    # Verify the proof
-    assert verify(vk, x, Y, pi), "Verification failed"
-    print("Verification successful")
-
+    # Verify the eVRF
+    assert verify(vk, x, Y, pi), "eVRF verification failed!"
+    print("eVRF verification succeeded!")
 
 test()
