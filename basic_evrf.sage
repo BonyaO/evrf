@@ -28,23 +28,16 @@ GT2 = G_vec[2]
 0x08b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1])
 assert (q*GT1).is_zero()"""
 
-# GT2 generator
-#GT2 = find_subgroup_generator(E, q)
-
 # GS generator
 GS = find_subgroup_generator(F, s)
 
-
 def hash_to_curve_gs(Q, x):
-    """Hash function for basic eVRF (single curve hash)"""
+    """Hash function for basic eVRF. Hashes a point Q and an integer x to a point on the source group"""
     data = point_to_bytes(Q) + str(x).encode()
     # Hash the data
     h = hashlib.sha256(data).digest()
-    
-    # Convert the hash to an integer
-    h_int = int.from_bytes(h, byteorder='big')
 
-    return hash_to_curve_bandersnatch(h_int % q)
+    return hash_to_curve_bandersnatch(int.from_bytes(h, byteorder='big') % q)
 
 
 # Generate a random private key
@@ -267,13 +260,9 @@ def eval(k,x):
     # Step 2: Generate Schnorr proof for Y = x_P*G_T2
     pi_Y = proof_R_dlog(Y, GT2, x_P)
     
-    start_time = time.time()
+    
     # Step 3: Generate Bulletproof for the R1CS statement
     pi_BP = generate_bulletproof(A, B, C, T, z)
-
-
-    proof_time = time.time() - start_time
-    print(f"Proof generation time: {proof_time:.4f} seconds")
     
     pi = {
         "pi_Q": pi_Q,
@@ -293,7 +282,6 @@ def verify(vk, x, Y, pi):
     # Extract Q and Y from vk
     Q = vk
 
-    #Define commitment T
     T = G1 + Q + Y
     # Step 1: Verify Schnorr proof for Q = k*G_T1 
     if not verify_proof_R_dlog(Q, GT1, pi_Q):

@@ -12,9 +12,8 @@ n = 7*l + 8
 m_prime = 7*l + 7
 m = 2^(ceil(log(m_prime + n, 2))) - n
 
-# Use find_subgroup_generator to get G_vec
+# Use find_subgroup_generator to get G_vec and H_vec
 G_vec = [find_subgroup_generator(E, q) for _ in range(n+m)]
-# Construct H vector
 H_vec = [find_subgroup_generator(E, q) for _ in range(n+m)]
 
 G = find_subgroup_generator(E, q)
@@ -33,11 +32,8 @@ def hash_to_curve_gs(Q, x, j):
     data = point_to_bytes(Q) + str(x).encode() + str(j).encode()
     # Hash the data
     h = hashlib.sha256(data).digest()
-    
-    # Convert the hash to an integer
-    h_int = int.from_bytes(h, byteorder='big')
 
-    return hash_to_curve_bandersnatch(h_int % q)
+    return hash_to_curve_bandersnatch((int.from_bytes(h, byteorder='big')% q))
 
 
 # Generate a random private key
@@ -79,9 +75,9 @@ def generate_witness_vector(y, X1, X2, k):
         z[3 + i] = k_bits[i]
 
     # Starting index for witness data after k_bits
-    witness_idx = 3 + len(k_bits)  # This should be 3 + (ell + 1)
+    witness_idx = 3 + len(k_bits) 
     
-    for j in [1, 2]:  # Process both X1 and X2
+    for j in [1, 2]:  
         X = X1 if j == 1 else X2
         
         # Compute P_i = 2^i · X for i in {0, ..., ℓ}
@@ -153,8 +149,8 @@ def generate_witness_vector(y, X1, X2, k):
 
 def R1CSMatricesFull(X1, X2, k_prime):
     # Global parameters
-    ell = l  # This should be defined globally as ⌊log₂ min{s, q}⌋ - 1
-    G_S = GS  # Generator of G_S
+    ell = l  
+    G_S = GS  
     
     # Define c_i constants
     c = [1] + [2] * (ell - 1)
@@ -179,7 +175,6 @@ def R1CSMatricesFull(X1, X2, k_prime):
             
             # Check if any Delta points are zero
             if Delta_i_0.is_zero() or Delta_i_1.is_zero():
-                # Return zero matrices as specified in the paper
                 A = matrix(Fq, m, n)
                 B = matrix(Fq, m, n) 
                 C = matrix(Fq, m, n)
@@ -206,8 +201,6 @@ def R1CSMatricesFull(X1, X2, k_prime):
     
     # Unit vector helper
     e = lambda i: vector([1 if j == i else 0 for j in range(n)])
-    
-    # Build the constraint matrices row by row
     
     # Row 1: k = sum_{i=0}^ell 2^i * k_i
     A[0] = e(0)  
