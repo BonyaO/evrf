@@ -320,12 +320,13 @@ def test():
 
     # Generate a random x
     x = Fq.random_element()
-    
+
     # Evaluate the eVRF
     y_evrf, Y, pi = eval(k, x)
 
     # Verify the eVRF
     assert verify(vk, x, Y, pi), "eVRF verification failed!"
     print("eVRF verification succeeded!")
+
 
 test()

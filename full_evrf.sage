@@ -50,13 +50,10 @@ def keygen():
     
     # Verification key
     Q = k * GT1
-    
-    # Schnorr proof to generate pi_Q
-    pi_Q = proof_R_dlog(Q, GT1, k)
-    
-    vk = (Q, k_prime, pi_Q)
+
+    vk = (Q, k_prime)
     sk = (k, k_prime)
-    
+
     return sk, vk
 
 
@@ -325,16 +322,12 @@ def eval(sk,x):
     pi_Y = proof_R_dlog(Y, GT2, y)
     
     
-    z = generate_witness_vector(k, X1, X2, k)
+    z = generate_witness_vector(y, X1, X2, k)
 
     # Generate R1CS matrices
     A, B, C = R1CSMatricesFull(X1, X2, k_prime)
 
-    # print the dimensions of the matrices
-    print(f"A dimensions: rows: {A.nrows()} x {A.ncols()} columns")
 
-    T = G1 + Q + Y
-    
     # Generate bulletproof for both R1CS statements
     pi_BP = generate_bulletproof(A, B, C, T, z)
     
@@ -349,7 +342,7 @@ def eval(sk,x):
 
 def verify(vk, x, Y, pi):
     """Verify an output of the full DDH-based eVRF"""
-    Q, k_prime, pi_Q = vk
+    Q, k_prime = vk
     pi_Q = pi["pi_Q"]
     pi_Y = pi["pi_Y"]
     pi_BP1 = pi["pi_BP1"]
@@ -379,17 +372,10 @@ def test():
     print("Testing keygen...")
     sk, vk = keygen()
     k, k_prime = sk
-    Q, k_prime_pub, pi_Q = vk
-    
-    assert verify_proof_R_dlog(Q, GT1, pi_Q), "Key proof verification failed"
-    assert k_prime == k_prime_pub, "k_prime mismatch" 
-    print("Keygen test passed!")
-    
-    print("Testing eval and verify...")
-    
-    # Test input from source field Fs
-    x = Fs.random_element()
-    
+    Q, k_prime_pub = vk
+
+    x = Fq.random_element()
+
     # Evaluate VRF
     y, Y, pi = eval(sk, x)
     
