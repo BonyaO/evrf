@@ -5,7 +5,7 @@ This project implements a DDH-based Exponent Verifiable Random Function (EVRF) u
 ## Components
 - **Basic EVRF**: Core implementation of the EVRF functionality
 - **Full EVRF**: Extended implementation with additional features
-- **Validator**: Module for generating multiple public keys from a single Bandersnatch key
+- **BLSKeygenProtocol**: Module for generating multiple public keys from a single Bandersnatch key
 - **Common**: Shared utilities and Bulletproof implementation
 
 ## Usage
