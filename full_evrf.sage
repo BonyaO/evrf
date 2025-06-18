@@ -320,7 +320,8 @@ def eval(sk,x):
     # Generate R1CS matrices
     A, B, C = R1CSMatricesFull(X1, X2, k_prime)
 
-
+    # Compute the T point for the bulletproof
+    T = G1 + Q + Y
     # Generate bulletproof for both R1CS statements
     pi_BP = generate_bulletproof(A, B, C, T, z)
     

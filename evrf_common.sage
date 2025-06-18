@@ -153,7 +153,6 @@ def generate_modified_inner_product_proof(G, H, G_base, H_base, P, a, b, alpha):
         delta = Fq.random_element()
         eta = Fq.random_element()
 
-       
         # Compute commitments A and B
         A = r * G[0] + s * H[0] + (r * b[0] + s * a[0]) * G_base + delta * H_base
         B = (r * s) * G_base + eta * H_base
@@ -164,17 +163,11 @@ def generate_modified_inner_product_proof(G, H, G_base, H_base, P, a, b, alpha):
         
         P_computed = inner_product(a, G) + inner_product(b, H) + inner_product(a, b) * G_base + alpha * H_base
 
-
         # Compute responses
         r_prime = r + a[0] * e
         s_prime = s + b[0] * e
         delta_prime = eta + delta * e + alpha * e^2
 
-        
-        
-
-        
-        
         return {
             "A": A,
             "B": B,
@@ -206,7 +199,6 @@ def generate_modified_inner_product_proof(G, H, G_base, H_base, P, a, b, alpha):
     d_L = Fq.random_element()
     d_R = Fq.random_element()
     
-    # Compute commitments L and R according to the paper
     # L = <a_1, G_2> + <b_2, H_1> + c_L * G + d_L * H
     L = inner_product(a_1, G_2) + inner_product(b_2, H_1) + c_L * G_base + d_L * H_base
     
@@ -227,7 +219,6 @@ def generate_modified_inner_product_proof(G, H, G_base, H_base, P, a, b, alpha):
         G_prime.append(e_inv * G_1[i] + e * G_2[i])
         H_prime.append(e * H_1[i] + e_inv * H_2[i])
     
-    # Compute new vectors for the next level
     # a' = e * a_1 + e^(-1) * a_2
     # b' = e^(-1) * b_1 + e * b_2
     a_prime = []
@@ -235,10 +226,9 @@ def generate_modified_inner_product_proof(G, H, G_base, H_base, P, a, b, alpha):
     for i in range(n_half):
         a_prime.append(e * a_1[i] + e_inv * a_2[i])
         b_prime.append(e_inv * b_1[i] + e * b_2[i])
-    
-    
-    P_prime = e^2 * L + P + e^(-2) * R
 
+    # Compute new point P' = e^2 * L + P + e^(-2) * R
+    P_prime = e^2 * L + P + e^(-2) * R
 
     alpha_prime = e^2 * d_L + alpha + e^(-2) * d_R
     
@@ -247,7 +237,6 @@ def generate_modified_inner_product_proof(G, H, G_base, H_base, P, a, b, alpha):
         G_prime, H_prime, G_base, H_base, P_prime, 
         a_prime, b_prime, alpha_prime
     )
-    
     
     return {
         "L": L,
@@ -263,8 +252,6 @@ def verify_inner_product_proof(G, H, G_base, H_base, P, omega, proof):
 
     G_prime = e * G_base
     P_Prime = P + omega * G_prime
-
-    
     
     return verify_modified_inner_product_proof(G, H, G_prime, H_base, P_Prime, proof)
 
@@ -299,12 +286,7 @@ def verify_modified_inner_product_proof(G, H, G_base, H_base, P, proof):
         term3 = (r_prime * s_prime) * G_base 
         term4 = delta_prime * H_base       
         
-        right_side = term1 + term2 + term3 + term4
-
-        print("Left side:", left_side)
-        print("Right side:", right_side)
-        print("Left side with P_computed:", left_side_with_P)
-        
+        right_side = term1 + term2 + term3 + term4   
         
         return left_side == right_side
     
@@ -330,7 +312,6 @@ def verify_modified_inner_product_proof(G, H, G_base, H_base, P, proof):
     
     e_inv = e^(-1)
 
-    # Compute new generators for the next level
     # G' = e^(-1) * G_1 + e * G_2
     # H' = e * H_1 + e^(-1) * H_2
     G_prime = []
@@ -367,9 +348,7 @@ def generate_bulletproof(A, B, C, T, z):
     Az = A * z
     Bz = B * z
     
-    # Step 1: Prover computes S
     # S = ⟨((x'||y) || Az), G⟩ + ⟨(0^n || Bz), H⟩ + r·H
-    
     x_prime = vector(Fq, [0] * r) 
     x_prime_y_concat = vector(Fq, list(x_prime) + list(y))  
     
@@ -385,23 +364,22 @@ def generate_bulletproof(A, B, C, T, z):
     # Complete S computation
     S = S_G_term + S_H_term + r_random * H
     
-    # Step 2: Use Fiat-Shamir to get verifier's challenges
+    # Use Fiat-Shamir to get verifier's challenges
     transcript_data = point_to_bytes(S)
     alpha = compute_challenge([transcript_data, b"alpha"])
     beta = compute_challenge([transcript_data, b"beta"])
     gamma = compute_challenge([transcript_data, b"gamma"])
     delta = compute_challenge([transcript_data, b"delta"])
     
-    # Step 3: Compute intermediate values as per the paper
+    # mu = α · γ
     mu = alpha * gamma
     
-    
+    # delta_vec = (δ, δ, δ, 1, 1, ..., 1)
     delta_vec = vector(Fq, n_b)
     for i in range(r):
         delta_vec[i] = delta
     for i in range(r, n_b):
         delta_vec[i] = 1
-    
     
     # Construct δ^(-1) vector
     delta_inv = delta^(-1)
@@ -411,8 +389,6 @@ def generate_bulletproof(A, B, C, T, z):
     for i in range(r, n_b):
         delta_inv_vec[i] = 1
     
-    
-    # Step 4: Construct G' vector with modified generators
     # G' = (G_1, ..., G_n, γ^(-1)·G_{n+1}, ..., γ^(-m)·G_{n+m})
     gamma_inv = gamma^(-1)
     G_prime = []
@@ -423,8 +399,8 @@ def generate_bulletproof(A, B, C, T, z):
     for i in range(m_b):
         G_prime.append((gamma_inv^(i+1)) * G_vec[n_b + i])
 
-    
-    # Step 5: Compute vector c = μ^m A + β^m B - γ^m C
+
+    # Compute vector c = μ^m A + β^m B - γ^m C
     c = vector(Fq, n_b)
     
     mu_vec = vector(Fq, [mu^(i+1) for i in range(m_b)])
@@ -432,22 +408,18 @@ def generate_bulletproof(A, B, C, T, z):
     gamma_m_vec = vector(Fq, [gamma^(i+1) for i in range(m_b)])
 
     c = mu_vec * A + beta_m_vec * B - gamma_m_vec * C
-    
-    assert len(c) == n_b, "Vector c must have the same length as the number of columns in A, B, C"
-    # Step 6: Compute inner product value ω
+   
     # ω = ⟨α^m, β^m⟩ + δ² · ⟨α^n, c ◦ δ⟩
-
     alpha_m_vec = vector(Fq, [alpha^(i+1) for i in range(m_b)])
     omega = 0
-    
-    omega += inner_product(alpha_m_vec, beta_m_vec)  # First term: ⟨α^m, β^m⟩
-    
+    omega += inner_product(alpha_m_vec, beta_m_vec)
+
     alpha_n_vec = vector(Fq, n_b, [alpha^(i+1) for i in range(n_b)])
     
     c_hadamard_delta = hadamard_product(c, delta_vec)
     omega += (delta^2) * inner_product(alpha_n_vec, c_hadamard_delta)
     
-    
+    # P = δ^(-1) · T + S + ⟨(δ² · α^n || -β^m), G'⟩ + ⟨(c ◦ δ || -α^m), H⟩
     P = delta_inv * T + S
     
     # Add ⟨(δ² · α^n || -β^m), G'⟩
@@ -462,7 +434,7 @@ def generate_bulletproof(A, B, C, T, z):
     P += inner_product(h_term_vec, H_vec)
 
     
-    # For u: ((x'||y) + δ^(-1) · (x||y') + δ² · α^n || (Az + δ^(-1) · Az') ◦ γ^m - β^m)
+    # u: ((x'||y) + δ^(-1) · (x||y') + δ² · α^n || (Az + δ^(-1) · Az') ◦ γ^m - β^m)
     y_prime = vector(Fq, [0] * (n_b - r)) 
     x_y_prime_concat = vector(Fq, list(x) + list(y_prime))
     
@@ -478,22 +450,18 @@ def generate_bulletproof(A, B, C, T, z):
     
     u = vector(Fq, list(u_first_part) + list(u_second_part))
     
-    # For v: (c ◦ δ || Bz - α^m + δ^(-1) · Bz')
+    # v: (c ◦ δ || Bz - α^m + δ^(-1) · Bz')
     Bz_prime = B * z_prime
     v_second_part = Bz - alpha_m_vec + delta_inv * Bz_prime
     
     v = vector(Fq, list(c_hadamard_delta) + list(v_second_part))
     
-    # Step 8: Compute η'
+    # Compute η'
     eta_prime = r_random + delta_inv * eta  
 
-    P_computed = inner_product(u, G_prime) + inner_product(v, H_vec) + eta_prime * H
-
-    print("P_computed:", P_computed)
-    print("P:", P)
 
    
-    # Step 11: Generate the inner product proof
+    # Generate the inner product proof
     inner_product_proof = generate_inner_product_proof(G_prime, H_vec, G, H, P, omega, u, v, eta_prime)
 
     # Return the complete bulletproof
@@ -540,7 +508,6 @@ def verify_bulletproof(A, B, C, T, proof):
         delta_inv_vec[i] = 1
     
     
-    # Step 4: Construct G' vector with modified generators
     # G' = (G_1, ..., G_n, γ^(-1)·G_{n+1}, ..., γ^(-m)·G_{n+m})
     gamma_inv = gamma^(-1)
     G_prime = []
@@ -552,7 +519,7 @@ def verify_bulletproof(A, B, C, T, proof):
         G_prime.append((gamma_inv^(i+1)) * G_vec[n_b + i])
 
     
-    # Step 5: Compute vector c = μ^m A + β^m B - γ^m C
+    # Compute vector c = μ^m A + β^m B - γ^m C
     c = vector(Fq, n_b)
     
     mu_vec = vector(Fq, [mu^(i+1) for i in range(m_b)])
@@ -561,10 +528,7 @@ def verify_bulletproof(A, B, C, T, proof):
 
     c = mu_vec * A + beta_m_vec * B - gamma_m_vec * C
     
-    assert len(c) == n_b, "Vector c must have the same length as the number of columns in A, B, C"
-    # Step 6: Compute inner product value ω
     # ω = ⟨α^m, β^m⟩ + δ² · ⟨α^n, c ◦ δ⟩
-
     alpha_m_vec = vector(Fq, [alpha^(i+1) for i in range(m_b)])
     omega = 0
     
@@ -575,16 +539,13 @@ def verify_bulletproof(A, B, C, T, proof):
     c_hadamard_delta = hadamard_product(c, delta_vec)
     omega += (delta^2) * inner_product(alpha_n_vec, c_hadamard_delta)
     
-    
+    # P = δ^(-1) · T + S + ⟨(δ² · α^n || -β^m), G'⟩ + ⟨(c ◦ δ || -α^m), H⟩
     P = delta_inv * T + S
-    
-    # Add ⟨(δ² · α^n || -β^m), G'⟩
     delta_sq_alpha_n = (delta^2) * alpha_n_vec
     neg_beta_m = - beta_m_vec
     g_prime_term_vec = vector(Fq, list(delta_sq_alpha_n) + list(neg_beta_m))
     P += inner_product(g_prime_term_vec, G_prime)
     
-    # Add ⟨(c ◦ δ || -α^m), H⟩
     neg_alpha_m = - alpha_m_vec
     h_term_vec = vector(Fq, list(c_hadamard_delta) + list(neg_alpha_m))
     P += inner_product(h_term_vec, H_vec)
