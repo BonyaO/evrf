@@ -345,6 +345,13 @@ def verify(vk, x, Y, pi):
     X1 = hash_to_curve_gs(Q, x, 1)
     X2 = hash_to_curve_gs(Q, x, 2)
 
+    # Verify X1 and X2 are in prime order subgroup and not point at infinity
+    if X1.is_zero() or X2.is_zero():
+        return False
+    
+    if not (s * X1).is_zero() or not (s * X2).is_zero():
+        return False
+
 
     # Verify the discrete logarithm proofs
     if not verify_proof_R_dlog(Q, GT1, pi_Q):

@@ -292,6 +292,14 @@ def verify(vk, x, Y, pi):
         return False
 
     H_x = hash_to_curve_gs(Q, x)
+
+    # Verify H_x is in prime order subgroup and not point at infinity
+    if H_x.is_zero():
+        return False
+    
+    if not (s * H_x).is_zero():
+        return False
+
     # Step 3: Verify Bulletproof for the R1CS statement
     A, B, C = R1CSMatrices(H_x)
 

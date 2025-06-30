@@ -57,7 +57,21 @@ def hash_to_curve_bandersnatch(x):
     while True:
         try: 
             P = F.lift_x(x)
-            return P   
+            # Check 1: Ensure point is not at infinity
+            if P.is_zero():
+                x = x + 1
+                continue
+                
+            # Check 2: Ensure point is in the prime order subgroup
+            cofactor = F.order() // s
+            P_subgroup = cofactor * P
+            
+            # Verify the point is in the correct subgroup
+            if P_subgroup.is_zero() or not (s * P_subgroup).is_zero():
+                x = x + 1
+                continue
+                
+            return P_subgroup  
         except (ValueError):
             x = x+1
 
